@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  # Flink Manager API
+  flink-manager-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URL=mongodb://mongo:27017
+      - MONGODB_DATABASE=flink_manager
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET=artifacts
+      - MINIO_SECURE=false
+      - FLINK_REST_API_URL=http://flink-jobmanager:8081
+      - DEBUG=false
+    depends_on:
+      - mongo
+      - minio
+    networks:
+      - flink-network
+    restart: unless-stopped
+
+  # MongoDB
+  mongo:
+    image: mongo:4.4
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=flink_manager
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - flink-network
+    restart: unless-stopped
+
+  # MinIO
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - flink-network
+    restart: unless-stopped
+
+  # Flink JobManager
+  flink-jobmanager:
+    image: flink:1.17-scala_2.12
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 2
+        parallelism.default: 1
+    volumes:
+      - flink_data:/opt/flink
+    networks:
+      - flink-network
+    restart: unless-stopped
+
+  # Flink TaskManager
+  flink-taskmanager:
+    image: flink:1.17-scala_2.12
+    depends_on:
+      - flink-jobmanager
+    command: taskmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 2
+        parallelism.default: 1
+    volumes:
+      - flink_data:/opt/flink
+    networks:
+      - flink-network
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+  minio_data:
+  flink_data:
+
+networks:
+  flink-network:
+    driver: bridge
+
