@@ -9,7 +9,7 @@ import time
 from app.config import settings
 from app.core.database import connect_to_mongo, close_mongo_connection
 from app.core.exceptions import handle_exception
-from app.api.v1 import artifacts, jobs, health
+from app.api.v1 import artifacts, job_specs, health
 
 # Cấu hình logging
 logging.basicConfig(
@@ -28,15 +28,22 @@ app = FastAPI(
     API để quản lý Flink jobs với các tính năng:
     
     * **Artifacts**: Upload, quản lý và versioning JAR files
-    * **Job Configs**: Tạo và quản lý cấu hình jobs
-    * **Deployment**: Deploy và quản lý jobs trên Flink cluster
-    * **Audit**: Theo dõi lịch sử deployment và thay đổi
+    * **Job Specs**: Tạo và quản lý job specifications
+    * **Executions**: Bắt đầu và quản lý executions trên Flink cluster
+    * **Audit**: Theo dõi lịch sử execution và thay đổi
     
     ### Kiến trúc
     
     - **MinIO**: Lưu trữ JAR artifacts
-    - **MongoDB**: Lưu trữ metadata và job configs
+    - **MongoDB**: Lưu trữ metadata, job specs và executions
     - **Flink REST API**: Tương tác với Flink cluster
+    
+    ### Workflow
+    
+    1. **Upload Artifact**: Upload JAR file với metadata
+    2. **Create Job Spec**: Tạo job specification từ artifact
+    3. **Start Execution**: Bắt đầu execution từ job spec
+    4. **Manage Execution**: Stop, restart hoặc monitor execution
     """,
     docs_url="/docs",
     redoc_url="/redoc",
@@ -108,7 +115,7 @@ async def shutdown_event():
 
 # Include routers
 app.include_router(artifacts.router, prefix="/api/v1")
-app.include_router(jobs.router, prefix="/api/v1")
+app.include_router(job_specs.router, prefix="/api/v1")
 app.include_router(health.router, prefix="/api/v1")
 
 
@@ -154,8 +161,8 @@ def custom_openapi():
             "description": "Quản lý JAR artifacts và metadata"
         },
         {
-            "name": "Job Configs", 
-            "description": "Quản lý cấu hình jobs và deployment"
+            "name": "Job Specifications", 
+            "description": "Quản lý job specifications và executions"
         },
         {
             "name": "Health Check",

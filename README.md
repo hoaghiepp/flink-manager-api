@@ -141,6 +141,12 @@ artifacts/
 
 ## 📖 Sử dụng API
 
+### 0. Run local
+
+```bash
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
 ### 1. Upload Artifact
 
 ```bash
